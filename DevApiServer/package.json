@@ -1,0 +1,14 @@
+{
+  "name": "ferris-wheel-dev-api",
+  "version": "1.0.0",
+  "description": "Local mock backend for testing the Ferris Wheel Unity game's API client.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
+

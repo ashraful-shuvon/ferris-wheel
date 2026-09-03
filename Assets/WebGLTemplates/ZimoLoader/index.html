@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>{{{ PRODUCT_NAME }}}</title>
+    <style>
+      html, body {
+        margin: 0; padding: 0; height: 100%; overflow: hidden;
+        /* Transparent so the host app shows through wherever the game doesn't
+           draw. The canvas only carries an alpha channel because Player
+           Settings has preserveFramebufferAlpha on, and the camera clears to
+           (0,0,0,0) — all three layers have to agree or the gap is painted. */
+        background: transparent;
+        font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      #unity-canvas { width: 100%; height: 100%; display: block; background: transparent; }
+
+      /* Full-screen loading overlay shown until Unity finishes loading. */
+      /* Position/size are set by sizeCanvas() so the loader occupies EXACTLY the
+         same rect as the game canvas — see the note there. `inset` is not used:
+         a viewport-filling loader would be a different size and shape from the
+         game that replaces it. */
+      #loader {
+        position: absolute; z-index: 10;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background:
+          radial-gradient(120% 90% at 50% 0%, #34145a 0%, #1d0a33 55%, #14081f 100%);
+        transition: opacity 0.4s ease;
+      }
+      #loader.hidden { opacity: 0; pointer-events: none; }
+
+      /* Soft glow behind the wheel */
+      .glow {
+        position: absolute; width: 260px; height: 260px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 170, 60, 0.18) 0%, transparent 65%);
+        pointer-events: none;
+      }
+
+      /* ── CSS ferris wheel ─────────────────────────────────────────── */
+      .wheel-wrap { position: relative; width: 110px; height: 110px; margin-bottom: 8px; }
+      .wheel {
+        position: absolute; inset: 0;
+        border: 3px solid rgba(255, 213, 105, 0.55);
+        border-radius: 50%;
+        animation: spin 6s linear infinite;
+      }
+      .wheel::before, .wheel::after {   /* spokes */
+        content: ""; position: absolute; inset: 0; margin: auto;
+        background: rgba(255, 213, 105, 0.30);
+      }
+      .wheel::before { width: 2px; height: 100%; }
+      .wheel::after  { height: 2px; width: 100%; }
+      .hub {
+        position: absolute; inset: 0; margin: auto; width: 14px; height: 14px;
+        border-radius: 50%; background: #ffd569;
+        box-shadow: 0 0 12px rgba(255, 213, 105, 0.8);
+      }
+      .cab {
+        position: absolute; top: 50%; left: 50%; width: 12px; height: 12px;
+        margin: -6px; border-radius: 3px;
+        animation: counterspin 6s linear infinite;
+      }
+      .cab:nth-child(odd)  { background: #ff5f6d; }
+      .cab:nth-child(even) { background: #ffc371; }
+      /* 8 cabins around the rim (55px radius) */
+      .cab:nth-child(1) { transform: rotate(0deg)   translateY(-55px); }
+      .cab:nth-child(2) { transform: rotate(45deg)  translateY(-55px); }
+      .cab:nth-child(3) { transform: rotate(90deg)  translateY(-55px); }
+      .cab:nth-child(4) { transform: rotate(135deg) translateY(-55px); }
+      .cab:nth-child(5) { transform: rotate(180deg) translateY(-55px); }
+      .cab:nth-child(6) { transform: rotate(225deg) translateY(-55px); }
+      .cab:nth-child(7) { transform: rotate(270deg) translateY(-55px); }
+      .cab:nth-child(8) { transform: rotate(315deg) translateY(-55px); }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes counterspin { to { transform: rotate(360deg) translateY(-55px); } }
+
+      /* ── Wordmark ─────────────────────────────────────────────────── */
+      .brand {
+        font-size: 34px; font-weight: 900; letter-spacing: 6px; margin-top: 18px;
+        background: linear-gradient(180deg, #ffe9a8 0%, #ffc371 45%, #ff8a3d 100%);
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 2px 18px rgba(255, 170, 60, 0.35);
+      }
+      .tagline {
+        color: rgba(255, 255, 255, 0.55); font-size: 12px; letter-spacing: 2px;
+        text-transform: uppercase; margin-top: 6px; margin-bottom: 24px;
+      }
+
+      .bar {
+        width: 230px; max-width: 62vw; height: 10px; border-radius: 6px;
+        background: rgba(255, 255, 255, 0.12); overflow: hidden;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+      .bar-fill {
+        height: 100%; width: 0%; border-radius: 6px;
+        background: linear-gradient(90deg, #ff5f6d, #ffc371);
+        transition: width 0.15s ease;
+      }
+      .pct { color: rgba(255, 255, 255, 0.7); font-size: 13px; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" width={{{ WIDTH }}} height={{{ HEIGHT }}} tabindex="-1"></canvas>
+
+    <div id="loader">
+      <div class="glow"></div>
+      <div class="wheel-wrap">
+        <div class="wheel"></div>
+        <div class="cab"></div><div class="cab"></div><div class="cab"></div><div class="cab"></div>
+        <div class="cab"></div><div class="cab"></div><div class="cab"></div><div class="cab"></div>
+        <div class="hub"></div>
+      </div>
+      <div class="brand">GREEDY</div>
+      <div class="tagline">Pick a cabin · Win big</div>
+      <div class="bar"><div class="bar-fill" id="bar-fill"></div></div>
+      <div class="pct" id="pct">Loading… 0%</div>
+    </div>
+
+    <script>
+      var canvas  = document.querySelector("#unity-canvas");
+      var loader  = document.querySelector("#loader");
+      var barFill = document.querySelector("#bar-fill");
+      var pct     = document.querySelector("#pct");
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        var meta = document.createElement("meta");
+        meta.name = "viewport";
+        meta.content =
+          "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes";
+        document.getElementsByTagName("head")[0].appendChild(meta);
+      }
+
+      // Size the canvas to the GAME's aspect, not the viewport's.
+      //
+      // The whole game lives in one bottom-anchored 1080x1389 element. Stretch
+      // the canvas to the full viewport and any surplus height lands above that
+      // element as empty space, which the camera then paints — the "band". No
+      // clear colour fixes it, because the band is real canvas.
+      //
+      // So the canvas takes only the height the game needs and sits at the
+      // BOTTOM (the game is bottom-anchored, and the sheet's bottom edge is
+      // where the player expects the controls). Whatever is left above is page,
+      // which is transparent, so the host app shows through it. On a viewport
+      // too SHORT for the aspect the width shrinks instead, letterboxing at the
+      // sides rather than cropping the board.
+      var GAME_ASPECT = 1389 / 1080;   // height / width of the game's content
+      // One geometry, applied to BOTH the canvas and the loading screen.
+      //
+      // The loader used to fill the viewport. Now that the canvas is only as
+      // tall as the game needs, a full-bleed loader is a different size from the
+      // game it hands over to: at an 80% sheet the loading art covered 80% and
+      // then the game appeared smaller, so the sheet visibly changed shape
+      // mid-launch. Sizing both from this one function makes that impossible —
+      // there is no second place to keep in sync.
+      function sizeCanvas() {
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+        var w = Math.min(vw, vh / GAME_ASPECT);
+        var h = w * GAME_ASPECT;
+        var left = (vw - w) / 2;
+        var top = vh - h;                    // bottom-aligned
+        [canvas, loader].forEach(function (el) {
+          if (!el) return;
+          el.style.position = "absolute";
+          el.style.left = left + "px";
+          el.style.top = top + "px";
+          el.style.width = w + "px";
+          el.style.height = h + "px";
+        });
+      }
+      sizeCanvas();
+      window.addEventListener("resize", sizeCanvas);
+      window.addEventListener("orientationchange", sizeCanvas);
+
+      var config = {
+        dataUrl:            "Build/{{{ DATA_FILENAME }}}",
+        frameworkUrl:       "Build/{{{ FRAMEWORK_FILENAME }}}",
+        codeUrl:            "Build/{{{ CODE_FILENAME }}}",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName:        "{{{ COMPANY_NAME }}}",
+        productName:        "{{{ PRODUCT_NAME }}}",
+        productVersion:     "{{{ PRODUCT_VERSION }}}",
+      };
+
+      // Force an alpha channel on the WebGL canvas.
+      //
+      // Unity's framework creates the context with `alpha:false` hardcoded, so
+      // the canvas composites as opaque no matter what the camera clears to.
+      // It does accept an override — but only through `Module`, and the loader
+      // copies just its own known config keys, so passing
+      // `webglContextAttributes` in the config object is silently dropped
+      // (verified in the built loader: there is no generic merge loop).
+      //
+      // Patching getContext is the one hook that cannot be bypassed: Unity has
+      // to come through it to create the context. premultipliedAlpha stays off
+      // or the transparent edges darken.
+      (function () {
+        var original = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (type, attrs) {
+          if (type === "webgl" || type === "webgl2") {
+            attrs = Object.assign({}, attrs || {}, {
+              alpha: true,
+              premultipliedAlpha: false,
+            });
+          }
+          return original.call(this, type, attrs);
+        };
+      })();
+
+      var script = document.createElement("script");
+      script.src = "Build/{{{ LOADER_FILENAME }}}";
+      script.onload = function () {
+        createUnityInstance(canvas, config, function (progress) {
+          var p = Math.round(progress * 100);
+          barFill.style.width = p + "%";
+          pct.textContent = "Loading… " + p + "%";
+        })
+          .then(function () {
+            // Game ready — fade the loader out, then remove it.
+            loader.classList.add("hidden");
+            setTimeout(function () { loader.style.display = "none"; }, 400);
+          })
+          .catch(function (message) {
+            pct.textContent = "Failed to load — please retry.";
+            console.error(message);
+          });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>

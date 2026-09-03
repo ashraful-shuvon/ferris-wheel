@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Ferris Wheel — Local API Tester</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 800px; margin: 30px auto; background: #1e1e22; color: #eee; }
+  h1 { font-size: 20px; }
+  fieldset { border: 1px solid #444; border-radius: 8px; margin-bottom: 16px; padding: 12px; }
+  legend { color: #9cf; }
+  label { display: block; margin: 6px 0 2px; font-size: 13px; color: #aaa; }
+  input { width: 100%; padding: 6px; box-sizing: border-box; background: #2a2a30; color: #eee; border: 1px solid #444; border-radius: 4px; }
+  button { margin: 6px 6px 0 0; padding: 8px 14px; background: #3a6df0; color: white; border: none; border-radius: 6px; cursor: pointer; }
+  button:hover { background: #2c54c4; }
+  pre { background: #111; color: #9f9; padding: 10px; border-radius: 6px; max-height: 320px; overflow: auto; white-space: pre-wrap; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  .status-ok { color: #6f6; }
+  .status-bad { color: #f66; }
+  a { color: #9cf; }
+</style>
+</head>
+<body>
+
+<h1>Ferris Wheel — Local API Tester</h1>
+<p>Talks directly to this mock server at <code>http://localhost:5002/api/v1</code> — the same base your Unity <code>ApiClient</code> uses.</p>
+
+<fieldset>
+  <legend>Connection</legend>
+  <label>API base</label>
+  <input id="apiBase" value="http://localhost:5002/api/v1" />
+  <label>Token (any string — this mock server accepts anything)</label>
+  <input id="token" value="dev-test-token" />
+</fieldset>
+
+<fieldset>
+  <legend>Endpoints</legend>
+  <button onclick="call('GET', '/games/ferris_wheel/config')">GET /config</button>
+  <button onclick="call('GET', '/games/ferris_wheel/current')">GET /current</button>
+  <button onclick="call('GET', '/games/ferris_wheel/balance')">GET /balance</button>
+  <button onclick="call('GET', '/games/ferris_wheel/leaderboard/today')">GET /leaderboard/today</button>
+  <div class="row">
+    <div>
+      <label>Win mode</label>
+      <select id="winMode">
+        <option value="single">single</option>
+        <option value="combo">combo</option>
+      </select>
+    </div>
+    <div>
+      <label>Win category</label>
+      <select id="winCategory">
+        <option value="Pizza">Pizza</option>
+        <option value="Vegetable">Vegetable</option>
+      </select>
+    </div>
+  </div>
+  <button onclick="setWinMode()">POST /win-mode</button>
+  <button onclick="setWinCategory()">POST /win-category</button>
+  <div class="row">
+    <div>
+      <label>Bet item key</label>
+      <input id="betItem" value="B1" />
+    </div>
+    <div>
+      <label>Bet amount</label>
+      <input id="betAmount" value="50" />
+    </div>
+  </div>
+  <button onclick="postBet()">POST /bet</button>
+</fieldset>
+
+<fieldset>
+  <legend>Add coins at runtime</legend>
+  <p>Simulates the web app topping up (or deducting) a player's wallet while the Unity game is running. The game polls balance every ~1.5s, so it picks this up automatically — no restart needed.</p>
+  <div class="row">
+    <div>
+      <label>Amount (use negative to deduct)</label>
+      <input id="addAmount" value="200" />
+    </div>
+  </div>
+  <button onclick="addCoins()">POST /balance/add</button>
+</fieldset>
+
+<fieldset>
+  <legend>Status</legend>
+  <div id="status">Not called yet.</div>
+</fieldset>
+
+<fieldset>
+  <legend>Response</legend>
+  <pre id="output">(nothing yet)</pre>
+</fieldset>
+
+<fieldset>
+  <legend>Launch the Unity build with this session</legend>
+  <p>If you've built/are serving the WebGL build, this is the URL the web app would redirect a player to (params read by <code>WebBridge.cs</code>):</p>
+  <div class="row">
+    <div>
+      <label>Unity build URL (where index.html is served)</label>
+      <input id="unityUrl" value="http://localhost:8080/index.html" />
+    </div>
+  </div>
+  <button onclick="openUnity()">Open Unity build with api/token params</button>
+</fieldset>
+
+<script>
+function base() { return document.getElementById('apiBase').value.trim().replace(/\/$/, ''); }
+function token() { return document.getElementById('token').value.trim(); }
+
+async function call(method, path, body) {
+  const url = base() + path;
+  const opts = {
+    method,
+    headers: { 'Authorization': 'Bearer ' + token() },
+  };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const statusEl = document.getElementById('status');
+  const outEl = document.getElementById('output');
+  statusEl.textContent = `Calling ${method} ${url} ...`;
+  try {
+    const res = await fetch(url, opts);
+    const text = await res.text();
+    let pretty = text;
+    try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+    outEl.textContent = pretty;
+    statusEl.innerHTML = res.ok
+      ? `<span class="status-ok">OK ${res.status}</span> — ${method} ${path}`
+      : `<span class="status-bad">FAILED ${res.status}</span> — ${method} ${path}`;
+  } catch (err) {
+    outEl.textContent = String(err);
+    statusEl.innerHTML = `<span class="status-bad">NETWORK ERROR</span> — is the server running? (${err.message})`;
+  }
+}
+
+function postBet() {
+  const item = document.getElementById('betItem').value.trim();
+  const amount = Number(document.getElementById('betAmount').value);
+  call('POST', '/games/ferris_wheel/bet', { item, amount });
+}
+
+function addCoins() {
+  const amount = Number(document.getElementById('addAmount').value);
+  call('POST', '/games/ferris_wheel/balance/add', { amount });
+}
+
+function setWinMode() {
+  const mode = document.getElementById('winMode').value;
+  call('POST', '/games/ferris_wheel/win-mode', { mode });
+}
+
+function setWinCategory() {
+  const category = document.getElementById('winCategory').value;
+  call('POST', '/games/ferris_wheel/win-category', { category });
+}
+
+function openUnity() {
+  const url = document.getElementById('unityUrl').value.trim();
+  const full = `${url}?api=${encodeURIComponent(base())}&token=${encodeURIComponent(token())}`;
+  window.open(full, '_blank');
+}
+</script>
+
+<fieldset>
+  <legend>Update Timings (ms)</legend>
+  <div class="row">
+    <div><label>Betting (ms)</label><input id="bettingMs" value="15000"></div>
+    <div><label>Spin duration (ms)</label><input id="spinMs" value="4000"></div>
+    <div><label>Warmup (ms)</label><input id="warmupMs" value="2000"></div>
+  </div>
+  <div class="row">
+    <div><label>Win glow hold (ms)</label><input id="intermissionMs" value="3000"></div>
+    <div><label>Countdown (ms)</label><input id="countdownMs" value="3000"></div>
+  </div>
+  <div class="row">
+    <div><label>Spin start tick (ms) — FAST</label><input id="spinIntervalStartMs" value="70"></div>
+    <div><label>Spin end tick (ms) — SLOW</label><input id="spinIntervalEndMs" value="350"></div>
+  </div>
+  <button onclick="updateTimings()">POST /config/update</button>
+</fieldset>
+
+<script>
+  function updateTimings() {
+    call('POST', '/games/ferris_wheel/config/update', {
+      bettingMs: Number(document.getElementById('bettingMs').value),
+      spinMs: Number(document.getElementById('spinMs').value),
+      warmupMs: Number(document.getElementById('warmupMs').value),
+      intermissionMs: Number(document.getElementById('intermissionMs').value),
+      countdownMs: Number(document.getElementById('countdownMs').value),
+      spinIntervalStartMs: Number(document.getElementById('spinIntervalStartMs').value),
+      spinIntervalEndMs: Number(document.getElementById('spinIntervalEndMs').value)
+    });
+  }
+</script>
+
+</body>
+</html>
+

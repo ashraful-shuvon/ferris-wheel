@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 389d5a34b35b24d349a734f8d6037ff2, type: 3}
+  m_Name: B3
+  m_EditorClassIdentifier: Assembly-CSharp::BetButtonData
+  buttonID: B3
+  buttonIcon: {fileID: 0}
+  historyIcon: {fileID: 5868536715455550996, guid: b5f79e0da36fcac4d85442fd42eef7fb, type: 3}
+  category: 1
+  winMultiplier: 15
