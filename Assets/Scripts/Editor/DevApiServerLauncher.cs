@@ -309,13 +309,33 @@ public static class DevApiServerLauncher
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "nodejs", exe),
         };
 #else
-        return new[]
+        var list = new System.Collections.Generic.List<string>
         {
             "/opt/homebrew/bin/" + name,
             "/usr/local/bin/" + name,
             "/opt/local/bin/" + name,
             "/usr/bin/" + name,
         };
+
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrEmpty(home))
+        {
+            var nvmNodeDir = Path.Combine(home, ".nvm", "versions", "node");
+            if (Directory.Exists(nvmNodeDir))
+            {
+                var versions = Directory.GetDirectories(nvmNodeDir);
+                Array.Sort(versions);
+                Array.Reverse(versions);
+                foreach (var v in versions)
+                {
+                    list.Add(Path.Combine(v, "bin", name));
+                }
+            }
+            list.Add(Path.Combine(home, ".volta", "bin", name));
+            list.Add(Path.Combine(home, ".asdf", "shims", name));
+        }
+
+        return list.ToArray();
 #endif
     }
 

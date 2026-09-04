@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: B2
   m_EditorClassIdentifier: Assembly-CSharp::BetButtonData
   buttonID: B2
-  buttonIcon: {fileID: 0}
-  historyIcon: {fileID: 8087264811701705948, guid: 3947b31dc818e5c49a6ee405ff11dfb5, type: 3}
-  category: 1
-  winMultiplier: 25
+  buttonIcon: {fileID: -4645683575930941925, guid: b126116a75ccd4e9a9fe4709ed29b5ab, type: 3}
+  historyIcon: {fileID: 7579727812590786935, guid: 9a1d3bdec3b584b2cb442c1f9e534c05, type: 3}
+  category: 0
+  winMultiplier: 24
