@@ -27,7 +27,7 @@ namespace Zimo.Net
 
         /// <summary>Editor / non-WebGL dev fallbacks. Set these in a bootstrap
         /// object or leave blank to run the offline demo.</summary>
-        public static string EditorApiBase = "http://localhost:5003/api/v1";
+        public static string EditorApiBase = "http://127.0.0.1:5002/api/v1";
         public static string EditorToken = "";
 
         public static string GetParam(string name)

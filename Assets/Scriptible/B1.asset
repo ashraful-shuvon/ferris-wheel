@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BetButtonData
   buttonID: B1
   buttonIcon: {fileID: 0}
-  historyIcon: {fileID: -5506445479710590671, guid: 105aca8aaf574e345ae576dee5e604c9, type: 3}
+  historyIcon: {fileID: 8087264811701705948, guid: 3947b31dc818e5c49a6ee405ff11dfb5, type: 3}
   category: 1
   winMultiplier: 45

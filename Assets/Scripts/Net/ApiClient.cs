@@ -21,7 +21,7 @@ namespace Zimo.Net
         [Header("Editor / dev testing only (ignored in WebGL builds)")]
         [Tooltip("API base used when running in the Editor. In a real WebGL " +
                  "build the `api` URL param from the WebView wins instead.")]
-        public string devApiBase = "http://localhost:5002/api/v1";
+        public string devApiBase = "http://127.0.0.1:5002/api/v1";
 
         [Tooltip("Paste a player access token here to test SERVER mode in the " +
                  "Editor. Get one from POST /auth/login/email on the main " +
@@ -34,10 +34,21 @@ namespace Zimo.Net
             // Feed the Editor/dev fallbacks into WebBridge so GameManager sees a
             // session in the Editor. In WebGL these are overridden by the real
             // URL params (token / api) the Flutter host appends.
-            if (!string.IsNullOrEmpty(devApiBase)) WebBridge.EditorApiBase = devApiBase;
+            if (!string.IsNullOrEmpty(devApiBase))
+                WebBridge.EditorApiBase = NormalizeLoopback(devApiBase);
             if (!string.IsNullOrEmpty(devToken)) WebBridge.EditorToken = devToken.Trim();
 
             _tokenExp = ParseExp(Token);
+        }
+
+        /// <summary>
+        /// macOS often resolves "localhost" to IPv6 (::1) while Node may be
+        /// listening on IPv4 only. Pinning the loopback address avoids that.
+        /// </summary>
+        static string NormalizeLoopback(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return url;
+            return url.Replace("://localhost", "://127.0.0.1");
         }
 
         string Base => WebBridge.ApiBase.TrimEnd('/');

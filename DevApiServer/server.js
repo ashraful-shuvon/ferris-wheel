@@ -443,8 +443,9 @@ gamesRouter.post("/config/update", (req, res) => {
 // Mount the router on both possible game prefixes
 app.use(["/api/v1/games/:gameKey", "/sandbox/v1/games/:gameKey"], gamesRouter);
 
-app.listen(PORT, () => {
-  console.log(`Ferris Wheel dev API running at http://localhost:${PORT}`);
-  console.log(`Test page:           http://localhost:${PORT}/index.html`);
-  console.log(`API base for Unity:  http://localhost:${PORT}/api/v1`);
+const HOST = "127.0.0.1";
+app.listen(PORT, HOST, () => {
+  console.log(`Ferris Wheel dev API running at http://${HOST}:${PORT}`);
+  console.log(`Test page:           http://${HOST}:${PORT}/index.html`);
+  console.log(`API base for Unity:  http://${HOST}:${PORT}/api/v1`);
 });
