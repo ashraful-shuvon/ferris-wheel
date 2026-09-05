@@ -9,6 +9,7 @@ public class FakeBetCoinShower : MonoBehaviour
     [Header("References")]
     public RectTransform coinPrefab;
     public RectTransform coinParent;
+    [Tooltip("The Coins child under this object. Fake other-player coins always spawn here and fly toward fruit buttons.")]
     public RectTransform sourceTransform;
     public List<BetButton> betButtons = new List<BetButton>();
     public GameManager gameManager;
@@ -73,9 +74,31 @@ public class FakeBetCoinShower : MonoBehaviour
         if (sourceTransform == null) { Debug.LogError("[FakeBetCoinShower] sourceTransform not assigned!"); enabled = false; return; }
         if (coinParent == null)      { Debug.LogError("[FakeBetCoinShower] coinParent not assigned!");      enabled = false; return; }
 
+        SyncSpritesFromAmountButtons();
         coinPrefab.gameObject.SetActive(false);
         showerRoutine = StartCoroutine(ShowerLoop());
         cycleDemoRoutine = StartCoroutine(CycleDemoLoop());
+    }
+
+    /// <summary>
+    /// Use the four BET AMOUNT coin images (100 / 1K / 10K / 100K) for the shower.
+    /// Inspector sprites are kept as a fallback if amount buttons are not wired.
+    /// </summary>
+    void SyncSpritesFromAmountButtons()
+    {
+        if (gameManager == null || gameManager.amountButtons == null) return;
+
+        var synced = new List<Sprite>();
+        foreach (var cb in gameManager.amountButtons)
+        {
+            if (cb == null) continue;
+            Sprite s = cb.FlySprite;
+            if (s != null && !synced.Contains(s))
+                synced.Add(s);
+        }
+
+        if (synced.Count > 0)
+            coinSprites = synced;
     }
 
     void OnDestroy()
@@ -122,7 +145,7 @@ public class FakeBetCoinShower : MonoBehaviour
                 var btn = betButtons[i];
                 if (btn == null) continue;
 
-                yield return StartCoroutine(SpawnStack(btn));
+                yield return StartCoroutine(SpawnStack(btn, 0));
                 yield return new WaitForSeconds(cycleHoldDuration);
             }
 
@@ -156,23 +179,49 @@ public class FakeBetCoinShower : MonoBehaviour
             if (delta > 0)
             {
                 btn.AddBet(delta);
-                StartCoroutine(SpawnStack(btn));
+                StartCoroutine(SpawnStack(btn, delta));
             }
         }
     }
 
-    IEnumerator SpawnStack(BetButton targetBtn)
+    IEnumerator SpawnStack(BetButton targetBtn, long amount)
     {
+        Sprite sprite = SpriteForAmount(amount);
+
         for (int i = 0; i < coinsPerStack; i++)
         {
-            SpawnCoin(targetBtn);
+            SpawnCoin(targetBtn, sprite);
             yield return new WaitForSeconds(coinStaggerDelay);
         }
     }
 
-    void SpawnCoin(BetButton targetBtn)
+    Sprite SpriteForAmount(long amount)
+    {
+        if (gameManager != null && gameManager.amountButtons != null && amount > 0)
+        {
+            Sprite best = null;
+            long bestAmt = -1;
+            foreach (var cb in gameManager.amountButtons)
+            {
+                if (cb == null || cb.FlySprite == null) continue;
+                if (cb.amount <= amount && cb.amount > bestAmt)
+                {
+                    bestAmt = cb.amount;
+                    best = cb.FlySprite;
+                }
+            }
+            if (best != null) return best;
+        }
+
+        if (coinSprites != null && coinSprites.Count > 0)
+            return coinSprites[Random.Range(0, coinSprites.Count)];
+        return null;
+    }
+
+    void SpawnCoin(BetButton targetBtn, Sprite sprite)
     {
         RectTransform targetRect = targetBtn.GetComponent<RectTransform>();
+        RectTransform from = sourceTransform;
 
         // Decide parent: under the button itself, or under coinParent.
         Transform spawnParent = (spawnUnderTargetButton && targetRect != null)
@@ -188,18 +237,19 @@ public class FakeBetCoinShower : MonoBehaviour
         // item / total bet / global bet) — pin them back above it.
         if (spawnUnderTargetButton) targetBtn.KeepBadgesOnTop();
 
-        if (coinSprites != null && coinSprites.Count > 0)
+        if (sprite != null)
         {
             var img = coin.GetComponent<Image>();
             if (img != null)
             {
-                img.sprite = coinSprites[Random.Range(0, coinSprites.Count)];
+                img.sprite = sprite;
+                img.preserveAspect = true;
                 Color c = img.color; c.a = 1f; img.color = c;
             }
         }
 
         // Positions in coinParent local space for the flight.
-        Vector2 startPos = (Vector2)coinParent.InverseTransformPoint(sourceTransform.position)
+        Vector2 startPos = (Vector2)coinParent.InverseTransformPoint(from.position)
                          + new Vector2(Random.Range(-sourceSpread, sourceSpread),
                                        Random.Range(-sourceSpread, sourceSpread));
 

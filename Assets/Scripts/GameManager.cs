@@ -317,6 +317,9 @@ public class GameManager : MonoBehaviour
             if (btn != null) btn.onClick.AddListener(() => SelectAmount(idx));
         }
 
+        if (amountButtons.Count > 0)
+            SelectAmount(0);
+
         for (int i = 0; i < betButtons.Count; i++)
         {
             int idx = i;
@@ -1152,22 +1155,17 @@ public class GameManager : MonoBehaviour
 
     void DoCoinFly(int idx)
     {
+        // Player bets fly from the selected BET AMOUNT coin (100 / 1K / 10K / 100K)
+        // toward the fruit button that was just tapped.
         if (coinFlyEffect != null && selectedAmountIndex >= 0 && selectedAmountIndex < amountButtons.Count)
         {
             var sourceCoin  = amountButtons[selectedAmountIndex];
             var sourceRect  = sourceCoin.GetComponent<RectTransform>();
             var targetRect  = betButtons[idx].GetComponent<RectTransform>();
 
-            // Use the same coin sprite as FakeBetCoinShower's "other players'
-            // bets" coins, so the player's own flying coin matches -- instead of
-            // the selected amount button's own (denomination-specific) sprite.
-            Sprite flySprite = (fakeBetCoinShower != null && fakeBetCoinShower.coinSprites.Count > 0)
-                               ? fakeBetCoinShower.coinSprites[0]
-                               : (sourceCoin.IsSelected && sourceCoin.buttonImage != null
-                                   ? sourceCoin.buttonImage.sprite
-                                   : sourceCoin.normalSprite);
-
-            coinFlyEffect.PlayCoinFly(sourceRect, targetRect, flySprite);
+            Sprite flySprite = sourceCoin.FlySprite;
+            if (flySprite != null)
+                coinFlyEffect.PlayCoinFly(sourceRect, targetRect, flySprite);
         }
     }
 

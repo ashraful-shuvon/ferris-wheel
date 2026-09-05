@@ -3,16 +3,16 @@ using UnityEngine.UI;
 using DG.Tweening;
 
 /// <summary>
-/// Attach this to each of the 5 coin/bet-amount buttons (50, 500, 1k, 5k, 10k).
+/// Attach this to each of the 4 coin/bet-amount buttons (100, 1K, 10K, 100K).
 /// Handles swapping between the normal sprite and the selected sprite, plus
 /// a scale "pop" animation on select/deselect via DOTween.
 /// GameManager calls SetSelected(true/false) — this script does not know about
-/// the other 4 buttons, GameManager handles the "only one selected" logic.
+/// the other buttons, GameManager handles the "only one selected" logic.
 /// </summary>
 public class CoinButton : MonoBehaviour
 {
     [Header("Identity")]
-    [Tooltip("The coin value this button represents, e.g. 50, 500, 1000, 5000, 10000.")]
+    [Tooltip("The coin value this button represents, e.g. 100, 1000, 10000, 100000.")]
     public long amount;
 
     [Header("Sprites")]
@@ -73,4 +73,17 @@ public class CoinButton : MonoBehaviour
     }
 
     public bool IsSelected => isSelected;
+
+    /// <summary>
+    /// Sprite used when this denomination flies toward a fruit button.
+    /// Always the unselected coin art so the flying chip matches the bet amount.
+    /// </summary>
+    public Sprite FlySprite
+    {
+        get
+        {
+            if (normalSprite != null) return normalSprite;
+            return buttonImage != null ? buttonImage.sprite : null;
+        }
+    }
 }
