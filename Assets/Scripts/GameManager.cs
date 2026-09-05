@@ -46,6 +46,16 @@ public class GameManager : MonoBehaviour
     public TextMeshProUGUI usernameText;
     public Button          repeatButton;
 
+    [Header("AMOUNTS bar")]
+    [Tooltip("Canvas/AMOUNTS/MyGameCoin/amount — this player's current coin balance.")]
+    public Text myGameCoinsText;
+
+    [Tooltip("Canvas/AMOUNTS/Total Bet/amount — all players' bets on the fruit buttons this round, from the app.")]
+    public Text totalBetText;
+
+    [Tooltip("Canvas/AMOUNTS/My Total Bet/amount — this player's own bets this round.")]
+    public Text myTotalBetText;
+
     [Tooltip("Shows the current server round number, e.g. \"Today: Round 42\". " +
              "Assign the 'CurrentRound' object's text component here.")]
     public TextMeshProUGUI currentRoundText;
@@ -626,6 +636,8 @@ public class GameManager : MonoBehaviour
                 string key = betButtons[i].data != null ? betButtons[i].data.buttonID : betButtons[i].name;
                 betButtons[i].SetPooledBet(PooledBetForKey(key));
             }
+
+            UpdateCoinUI();
         }
 
         // Refresh winMode from every poll — admin can change it mid-session
@@ -804,6 +816,7 @@ public class GameManager : MonoBehaviour
         }
         if (bearAnimator != null) bearAnimator.PlayIdle();
         phase = Phase.Betting;
+        UpdateCoinUI();
     }
 
     List<int> WinningButtonIndices(GameRoundDto r)
@@ -1194,10 +1207,31 @@ public class GameManager : MonoBehaviour
         SetStatus($"Bet amount set to {FormatCoins(selectedBetAmount)}");
     }
 
+    long TotalPooledBets()
+    {
+        long s = 0;
+        for (int i = 0; i < betButtons.Count; i++)
+        {
+            if (betButtons[i] == null) continue;
+            string key = betButtons[i].data != null ? betButtons[i].data.buttonID : betButtons[i].name;
+            s += PooledBetForKey(key);
+        }
+        return s;
+    }
+
     void UpdateCoinUI()
     {
+        string coins = FormatCoins(playerCoins);
         if (coinBalanceText != null)
-            coinBalanceText.text = FormatCoins(playerCoins);
+            coinBalanceText.text = coins;
+        if (myGameCoinsText != null)
+            myGameCoinsText.text = coins;
+
+        if (totalBetText != null)
+            totalBetText.text = FormatCoins(TotalPooledBets());
+
+        if (myTotalBetText != null)
+            myTotalBetText.text = FormatCoins(TotalMyBets());
     }
 
     void SetStatus(string msg)
