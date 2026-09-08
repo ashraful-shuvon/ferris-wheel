@@ -51,7 +51,7 @@ public class RoundResultPanel : MonoBehaviour
     [Header("Leaderboard Rows")]
     public RoundResultPodiumRow rowPrefab;
     public Transform rowsContainer;
-    public LeaderboardRowOrder rowOrder = LeaderboardRowOrder.Podium;
+    public LeaderboardRowOrder rowOrder = LeaderboardRowOrder.Ascending;
 
     [Header("Buttons")]
     public Button closeButton;
@@ -76,10 +76,10 @@ public class RoundResultPanel : MonoBehaviour
     public Ease  closeEase     = Ease.InBack;
 
     [Header("Dynamic Script Layout Configuration")]
-    public Vector2 leaderboardSize = new Vector2(500f, 700f);
+    public Vector2 leaderboardSize = new Vector2(780f, 966f);
     public Vector2 leaderboardPosition = Vector2.zero;
     public Sprite panelBackgroundSprite;
-    public Color panelBackgroundColor = new Color(0.12f, 0.12f, 0.16f, 0.95f);
+    public Color panelBackgroundColor = Color.white;
 
     [Header("Dynamic Script Close Button Configuration")]
     public Vector2 closeButtonSize = new Vector2(40f, 40f);
@@ -205,36 +205,53 @@ public class RoundResultPanel : MonoBehaviour
             UnityEditor.Undo.RecordObject(this, "Build Round Result UI");
         }
 #endif
-
         bool isNew;
+        Color ink = new Color(0.36f, 0.16f, 0.07f, 1f);
+        Color headerTan = new Color(0.662f, 0.616f, 0.498f, 1f);
+        Font font = GetBuiltinFont();
 
-        // 1. Setup the Panel's RectTransform
         panelRect = GetComponent<RectTransform>();
         if (panelRect == null)
-        {
             panelRect = GetOrAddComponentSafe<RectTransform>(gameObject, "Panel RectTransform", out isNew);
-            panelRect.anchoredPosition = leaderboardPosition;
-            panelRect.sizeDelta = leaderboardSize;
-            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
-            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-            panelRect.pivot = new Vector2(0.5f, 0.5f);
-        }
 
-        // 2. Setup Background Image
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.sizeDelta = leaderboardSize;
+        panelRect.anchoredPosition = leaderboardPosition;
+        panelRect.localScale = Vector3.one;
+
+        if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup == null) canvasGroup = GetOrAddComponentSafe<CanvasGroup>(gameObject, "CanvasGroup", out isNew);
+
         Image bgImage = GetComponent<Image>();
-        if (bgImage == null)
-        {
-            bgImage = GetOrAddComponentSafe<Image>(gameObject, "Panel Image", out isNew);
-        }
+        if (bgImage == null) bgImage = GetOrAddComponentSafe<Image>(gameObject, "Panel Image", out isNew);
         bgImage.enabled = true;
-        bgImage.sprite = panelBackgroundSprite;
-        bgImage.color = panelBackgroundColor;
-        if (panelBackgroundSprite != null)
+#if UNITY_EDITOR
+        if (panelBackgroundSprite == null)
         {
-            bgImage.type = Image.Type.Sliced;
+            Object[] assets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/RoundResultPanel.png");
+            for (int i = 0; i < assets.Length; i++)
+            {
+                Sprite s = assets[i] as Sprite;
+                if (s != null) { panelBackgroundSprite = s; break; }
+            }
         }
+#endif
+        bgImage.sprite = panelBackgroundSprite;
+        bgImage.color = Color.white;
+        bgImage.type = Image.Type.Simple;
+        bgImage.preserveAspect = true;
+        bgImage.raycastTarget = true;
 
-        // 3. Create Close Button (direct child of panel)
+        DestroyNamedChild(transform, "Overal(Vertical)");
+        DestroyNamedChild(transform, "Overall(Vertical)");
+        DestroyNamedChild(transform, "Overall");
+        DestroyNamedChild(transform, "RibbonTitle");
+        DestroyNamedChild(transform, "TitleText");
+        DestroyNamedChild(transform, "HeaderRow");
+        DestroyNamedChild(transform, "RowsContainer");
+
         Transform closeBtnTrans = FindAliveChild(transform, "CloseButton");
         if (closeBtnTrans == null) closeBtnTrans = FindAliveChild(transform, "closeButton");
         if (closeBtnTrans == null)
@@ -246,301 +263,137 @@ public class RoundResultPanel : MonoBehaviour
             btnRect.anchorMax = new Vector2(1f, 1f);
             btnRect.pivot = new Vector2(1f, 1f);
             btnRect.sizeDelta = closeButtonSize;
-            btnRect.anchoredPosition = new Vector2(-15f, -15f);
+            btnRect.anchoredPosition = new Vector2(-18f, -18f);
 
             Image btnImage = GetOrAddComponentSafe<Image>(closeBtnObj, "CloseButton Image", out isNew);
             btnImage.color = closeButtonColor;
-            
             closeButton = GetOrAddComponentSafe<Button>(closeBtnObj, "CloseButton Button", out isNew);
-
-            GameObject btnTextObj = CreateGameObjectSafe("Text", closeBtnObj.transform);
-            RectTransform txtRect = GetOrAddComponentSafe<RectTransform>(btnTextObj, "Text RectTransform", out isNew);
-            txtRect.anchorMin = Vector2.zero;
-            txtRect.anchorMax = Vector2.one;
-            txtRect.offsetMin = Vector2.zero;
-            txtRect.offsetMax = Vector2.zero;
-
-            Text txt = GetOrAddComponentSafe<Text>(btnTextObj, "Text Text", out isNew);
-            txt.text = "X";
-            txt.font = GetBuiltinFont();
-            txt.fontSize = 20;
-            txt.fontStyle = FontStyle.Bold;
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.color = Color.white;
         }
         else
         {
             closeButton = closeBtnTrans.GetComponent<Button>();
             if (closeButton == null) closeButton = GetOrAddComponentSafe<Button>(closeBtnTrans.gameObject, "CloseButton Button", out isNew);
         }
+        closeBtnTrans.gameObject.SetActive(false);
 
-        // 4. Create Overall(Vertical) container
-        Transform overallTrans = FindAliveChild(transform, "Overall(Vertical)");
-        if (overallTrans == null) overallTrans = FindAliveChild(transform, "Overall");
-        if (overallTrans == null)
-        {
-            GameObject overallObj = CreateGameObjectSafe("Overall(Vertical)", transform);
-            overallTrans = overallObj.transform;
-            RectTransform r = GetOrAddComponentSafe<RectTransform>(overallObj, "Overall RectTransform", out isNew);
-            r.anchorMin = Vector2.zero;
-            r.anchorMax = Vector2.one;
-            r.offsetMin = new Vector2(25f, 25f);
-            r.offsetMax = new Vector2(-25f, -25f);
-        }
+        // Title sits on the yellow ribbon baked into the panel sprite.
+        GameObject titleObj = CreateGameObjectSafe("RibbonTitle", transform);
+        RectTransform titleRect = GetOrAddComponentSafe<RectTransform>(titleObj, "Title Rect", out isNew);
+        titleRect.anchorMin = new Vector2(0.5f, 1f);
+        titleRect.anchorMax = new Vector2(0.5f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 0.5f);
+        titleRect.sizeDelta = new Vector2(560f, 52f);
+        titleRect.anchoredPosition = new Vector2(0f, -62f);
+        roundNumberText = GetOrAddComponentSafe<Text>(titleObj, "Title Text", out isNew);
+        roundNumberText.text = "Ranking in this Round";
+        roundNumberText.font = font;
+        roundNumberText.fontSize = 28;
+        roundNumberText.fontStyle = FontStyle.Bold;
+        roundNumberText.alignment = TextAnchor.MiddleCenter;
+        roundNumberText.color = ink;
+        roundNumberText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        roundNumberText.verticalOverflow = VerticalWrapMode.Overflow;
+        roundNumberText.raycastTarget = false;
 
-        VerticalLayoutGroup overallLayout = GetOrAddComponentSafe<VerticalLayoutGroup>(overallTrans.gameObject, "Overall Layout", out isNew);
-        overallLayout.spacing = 15f;
+        GameObject overallObj = CreateGameObjectSafe("Overall(Vertical)", transform);
+        RectTransform overallRect = GetOrAddComponentSafe<RectTransform>(overallObj, "Overall Rect", out isNew);
+        overallRect.anchorMin = Vector2.zero;
+        overallRect.anchorMax = Vector2.one;
+        overallRect.pivot = new Vector2(0.5f, 0.5f);
+        // Inset to the inner beige of RoundResultPanel.png (7% sides, 5.5% bottom, 17.5% top).
+        overallRect.offsetMin = new Vector2(leaderboardSize.x * 0.07f, leaderboardSize.y * 0.055f);
+        overallRect.offsetMax = new Vector2(-leaderboardSize.x * 0.07f, -leaderboardSize.y * 0.175f);
+
+        VerticalLayoutGroup overallLayout = GetOrAddComponentSafe<VerticalLayoutGroup>(overallObj, "Overall Layout", out isNew);
+        overallLayout.padding = new RectOffset(0, 0, 0, 12);
+        overallLayout.spacing = 0f;
+        overallLayout.childAlignment = TextAnchor.UpperCenter;
         overallLayout.childControlWidth = true;
         overallLayout.childControlHeight = false;
         overallLayout.childForceExpandWidth = true;
         overallLayout.childForceExpandHeight = false;
 
-        // 5. Create Top(Horizontal) inside Overall(Vertical)
-        Transform topTrans = FindAliveChild(overallTrans, "Top(Horizontal)");
-        if (topTrans == null) topTrans = FindAliveChild(overallTrans, "Top");
-        if (topTrans == null)
-        {
-            GameObject topObj = CreateGameObjectSafe("Top(Horizontal)", overallTrans);
-            topTrans = topObj.transform;
-            RectTransform r = GetOrAddComponentSafe<RectTransform>(topObj, "Top RectTransform", out isNew);
-            r.sizeDelta = new Vector2(0f, 120f); // preferred height
-        }
+        GameObject headerObj = CreateGameObjectSafe("HeaderRow", overallObj.transform);
+        RectTransform headerRect = GetOrAddComponentSafe<RectTransform>(headerObj, "Header Rect", out isNew);
+        headerRect.sizeDelta = new Vector2(0f, 52f);
+        LayoutElement headerLe = GetOrAddComponentSafe<LayoutElement>(headerObj, "Header LE", out isNew);
+        headerLe.minHeight = 52f;
+        headerLe.preferredHeight = 52f;
+        Image headerBg = GetOrAddComponentSafe<Image>(headerObj, "Header Image", out isNew);
+        headerBg.color = headerTan;
+        headerBg.raycastTarget = false;
 
-        HorizontalLayoutGroup topLayout = GetOrAddComponentSafe<HorizontalLayoutGroup>(topTrans.gameObject, "Top Layout", out isNew);
-        topLayout.spacing = 15f;
-        topLayout.childControlWidth = false;
-        topLayout.childControlHeight = true;
-        topLayout.childForceExpandWidth = false;
-        topLayout.childForceExpandHeight = true;
+        HorizontalLayoutGroup headerLayout = GetOrAddComponentSafe<HorizontalLayoutGroup>(headerObj, "Header Layout", out isNew);
+        headerLayout.padding = new RectOffset(18, 12, 0, 0);
+        headerLayout.spacing = 8f;
+        headerLayout.childAlignment = TextAnchor.MiddleLeft;
+        headerLayout.childControlWidth = false;
+        headerLayout.childControlHeight = true;
+        headerLayout.childForceExpandWidth = false;
+        headerLayout.childForceExpandHeight = true;
 
-        LayoutElement topLayoutElement = GetOrAddComponentSafe<LayoutElement>(topTrans.gameObject, "Top LayoutElement", out isNew);
-        topLayoutElement.preferredHeight = 120f;
+        GameObject playerLabelObj = CreateGameObjectSafe("PlayerLabel", headerObj.transform);
+        RectTransform playerLabelRect = GetOrAddComponentSafe<RectTransform>(playerLabelObj, "PlayerLabel Rect", out isNew);
+        playerLabelRect.sizeDelta = new Vector2(140f, 40f);
+        LayoutElement playerLe = GetOrAddComponentSafe<LayoutElement>(playerLabelObj, "PlayerLabel LE", out isNew);
+        playerLe.flexibleWidth = 1f;
+        playerLe.minWidth = 80f;
+        Text playerLabel = GetOrAddComponentSafe<Text>(playerLabelObj, "PlayerLabel Text", out isNew);
+        playerLabel.text = "Player";
+        playerLabel.font = font;
+        playerLabel.fontSize = 24;
+        playerLabel.fontStyle = FontStyle.Bold;
+        playerLabel.alignment = TextAnchor.MiddleLeft;
+        playerLabel.color = ink;
+        playerLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+        playerLabel.verticalOverflow = VerticalWrapMode.Overflow;
+        playerLabel.raycastTarget = false;
 
-        // 5a. Create WonFoodBgImage inside Top(Horizontal)
-        Transform bgImgTrans = FindAliveChild(topTrans, "WonFoodBgImage");
-        if (bgImgTrans == null)
-        {
-            GameObject bgObj = CreateGameObjectSafe("WonFoodBgImage", topTrans);
-            bgImgTrans = bgObj.transform;
-            RectTransform r = GetOrAddComponentSafe<RectTransform>(bgObj, "WonFoodBgImage RectTransform", out isNew);
-            r.sizeDelta = new Vector2(90f, 90f);
+        GameObject dividerObj = CreateGameObjectSafe("HeaderDivider", headerObj.transform);
+        RectTransform dividerRect = GetOrAddComponentSafe<RectTransform>(dividerObj, "Divider Rect", out isNew);
+        dividerRect.sizeDelta = new Vector2(3f, 22f);
+        LayoutElement dividerLe = GetOrAddComponentSafe<LayoutElement>(dividerObj, "Divider LE", out isNew);
+        dividerLe.minWidth = 3f;
+        dividerLe.preferredWidth = 3f;
+        dividerLe.preferredHeight = 22f;
+        Image dividerImg = GetOrAddComponentSafe<Image>(dividerObj, "Divider Image", out isNew);
+        dividerImg.color = ink;
+        dividerImg.raycastTarget = false;
 
-            wonFoodBgImage = GetOrAddComponentSafe<Image>(bgObj, "WonFoodBgImage Image", out isNew);
-            wonFoodBgImage.preserveAspect = true;
+        GameObject winnersLabelObj = CreateGameObjectSafe("WinnersLabel", headerObj.transform);
+        RectTransform winnersLabelRect = GetOrAddComponentSafe<RectTransform>(winnersLabelObj, "WinnersLabel Rect", out isNew);
+        winnersLabelRect.sizeDelta = new Vector2(210f, 40f);
+        LayoutElement winnersLe = GetOrAddComponentSafe<LayoutElement>(winnersLabelObj, "WinnersLabel LE", out isNew);
+        winnersLe.minWidth = 210f;
+        winnersLe.preferredWidth = 210f;
+        Text winnersLabel = GetOrAddComponentSafe<Text>(winnersLabelObj, "WinnersLabel Text", out isNew);
+        winnersLabel.text = "Winners";
+        winnersLabel.font = font;
+        winnersLabel.fontSize = 24;
+        winnersLabel.fontStyle = FontStyle.Bold;
+        winnersLabel.alignment = TextAnchor.MiddleLeft;
+        winnersLabel.color = ink;
+        winnersLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+        winnersLabel.verticalOverflow = VerticalWrapMode.Overflow;
+        winnersLabel.raycastTarget = false;
 
-            LayoutElement le = GetOrAddComponentSafe<LayoutElement>(bgObj, "WonFoodBgImage LayoutElement", out isNew);
-            le.ignoreLayout = true; // overlapping behind WonFoodImage
-        }
-        else
-        {
-            wonFoodBgImage = bgImgTrans.GetComponent<Image>();
-        }
+        GameObject rowsObj = CreateGameObjectSafe("RowsContainer", overallObj.transform);
+        RectTransform rowsRect = GetOrAddComponentSafe<RectTransform>(rowsObj, "Rows Rect", out isNew);
+        rowsRect.sizeDelta = new Vector2(0f, 0f);
+        LayoutElement rowsLe = GetOrAddComponentSafe<LayoutElement>(rowsObj, "Rows LE", out isNew);
+        rowsLe.flexibleHeight = 1f;
+        rowsLe.minHeight = 280f;
+        VerticalLayoutGroup rowsLayout = GetOrAddComponentSafe<VerticalLayoutGroup>(rowsObj, "Rows Layout", out isNew);
+        rowsLayout.padding = new RectOffset(10, 6, 18, 18);
+        rowsLayout.spacing = 22f;
+        rowsLayout.childAlignment = TextAnchor.UpperCenter;
+        rowsLayout.childControlWidth = true;
+        rowsLayout.childControlHeight = false;
+        rowsLayout.childForceExpandWidth = true;
+        rowsLayout.childForceExpandHeight = false;
+        rowsContainer = rowsObj.transform;
 
-        // 5b. Create WonFoodImage inside Top(Horizontal)
-        Transform foodImgTrans = FindAliveChild(topTrans, "WonFoodImage");
-        if (foodImgTrans == null)
-        {
-            GameObject foodObj = CreateGameObjectSafe("WonFoodImage", topTrans);
-            foodImgTrans = foodObj.transform;
-            RectTransform r = GetOrAddComponentSafe<RectTransform>(foodObj, "WonFoodImage RectTransform", out isNew);
-            r.sizeDelta = new Vector2(70f, 70f);
-
-            wonFoodImage = GetOrAddComponentSafe<Image>(foodObj, "WonFoodImage Image", out isNew);
-            wonFoodImage.preserveAspect = true;
-        }
-        else
-        {
-            wonFoodImage = foodImgTrans.GetComponent<Image>();
-        }
-
-        // 5c. Create HighlightedRow(Vertical) inside Top(Horizontal)
-        Transform hrTrans = FindAliveChild(topTrans, "HighlightedRow(Vertical)");
-        if (hrTrans == null) hrTrans = FindAliveChild(topTrans, "HighlightedRow");
-        if (hrTrans == null)
-        {
-            GameObject hrObj = CreateGameObjectSafe("HighlightedRow(Vertical)", topTrans);
-            hrTrans = hrObj.transform;
-            RectTransform r = GetOrAddComponentSafe<RectTransform>(hrObj, "HighlightedRow RectTransform", out isNew);
-            r.sizeDelta = new Vector2(250f, 100f);
-        }
-
-        VerticalLayoutGroup hrLayout = GetOrAddComponentSafe<VerticalLayoutGroup>(hrTrans.gameObject, "HighlightedRow Layout", out isNew);
-        hrLayout.spacing = 6f;
-        hrLayout.childControlWidth = true;
-        hrLayout.childControlHeight = true;
-        hrLayout.childForceExpandWidth = true;
-        hrLayout.childForceExpandHeight = true;
-
-        // 5c1. Create RoundNumberText inside HighlightedRow(Vertical)
-        Transform roundTxtTrans = FindAliveChild(hrTrans, "RoundNumberText");
-        if (roundTxtTrans == null)
-        {
-            GameObject roundObj = CreateGameObjectSafe("RoundNumberText", hrTrans);
-            roundTxtTrans = roundObj.transform;
-            RectTransform r = GetOrAddComponentSafe<RectTransform>(roundObj, "RoundNumberText RectTransform", out isNew);
-            r.sizeDelta = new Vector2(0f, 30f);
-
-            roundNumberText = GetOrAddComponentSafe<Text>(roundObj, "RoundNumberText Text", out isNew);
-            roundNumberText.text = "Round 0 Results:";
-            roundNumberText.font = GetBuiltinFont();
-            roundNumberText.fontSize = 20;
-            roundNumberText.fontStyle = FontStyle.Bold;
-            roundNumberText.alignment = TextAnchor.MiddleLeft;
-            roundNumberText.color = Color.white;
-
-            Shadow shadow = GetOrAddComponentSafe<Shadow>(roundObj, "RoundNumberText Shadow", out isNew);
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.6f);
-            shadow.effectDistance = new Vector2(1f, -1f);
-        }
-        else
-        {
-            roundNumberText = roundTxtTrans.GetComponent<Text>();
-        }
-
-        // 5c1a. Create TitleFoodImage inside RoundNumberText (centered right side)
-        Transform titleFoodImgTrans = FindAliveChild(roundTxtTrans, "TitleFoodImage");
-        if (titleFoodImgTrans == null)
-        {
-            GameObject titleFoodObj = CreateGameObjectSafe("TitleFoodImage", roundTxtTrans);
-            titleFoodImgTrans = titleFoodObj.transform;
-            RectTransform r = GetOrAddComponentSafe<RectTransform>(titleFoodObj, "TitleFoodImage RectTransform", out isNew);
-            r.anchorMin = new Vector2(1f, 0.5f);
-            r.anchorMax = new Vector2(1f, 0.5f);
-            r.pivot = new Vector2(0f, 0.5f);
-            r.sizeDelta = new Vector2(24f, 24f);
-            r.anchoredPosition = new Vector2(10f, 0f); // offset to the right of text
-
-            titleFoodImage = GetOrAddComponentSafe<Image>(titleFoodObj, "TitleFoodImage Image", out isNew);
-            titleFoodImage.preserveAspect = true;
-        }
-        else
-        {
-            titleFoodImage = titleFoodImgTrans.GetComponent<Image>();
-        }
-
-        // 5c2. Create WonAmountText inside HighlightedRow(Vertical)
-        Transform amountTxtTrans = FindAliveChild(hrTrans, "WonAmountText");
-        if (amountTxtTrans == null)
-        {
-            GameObject amountObj = CreateGameObjectSafe("WonAmountText", hrTrans);
-            amountTxtTrans = amountObj.transform;
-            RectTransform r = GetOrAddComponentSafe<RectTransform>(amountObj, "WonAmountText RectTransform", out isNew);
-            r.sizeDelta = new Vector2(0f, 25f);
-
-            wonAmountText = GetOrAddComponentSafe<Text>(amountObj, "WonAmountText Text", out isNew);
-            wonAmountText.font = GetBuiltinFont();
-            wonAmountText.fontSize = 18;
-            wonAmountText.fontStyle = FontStyle.Bold;
-            wonAmountText.alignment = TextAnchor.MiddleLeft;
-            wonAmountText.color = new Color(1f, 0.84f, 0f, 1f);
-            wonAmountText.text = "0";
-
-            Shadow shadow = GetOrAddComponentSafe<Shadow>(amountObj, "WonAmountText Shadow", out isNew);
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.6f);
-            shadow.effectDistance = new Vector2(1f, -1f);
-        }
-        else
-        {
-            wonAmountText = amountTxtTrans.GetComponent<Text>();
-        }
-
-        // 5c3. Create BetAmountText inside HighlightedRow(Vertical)
-        Transform betTxtTrans = FindAliveChild(hrTrans, "BetAmountText");
-        if (betTxtTrans == null)
-        {
-            GameObject betObj = CreateGameObjectSafe("BetAmountText", hrTrans);
-            betTxtTrans = betObj.transform;
-            RectTransform r = GetOrAddComponentSafe<RectTransform>(betObj, "BetAmountText RectTransform", out isNew);
-            r.sizeDelta = new Vector2(0f, 25f);
-
-            betAmountText = GetOrAddComponentSafe<Text>(betObj, "BetAmountText Text", out isNew);
-            betAmountText.font = GetBuiltinFont();
-            betAmountText.fontSize = 18;
-            betAmountText.fontStyle = FontStyle.Bold;
-            betAmountText.alignment = TextAnchor.MiddleLeft;
-            betAmountText.color = new Color(1f, 0.84f, 0f, 1f);
-            betAmountText.text = "0";
-
-            Shadow shadow = GetOrAddComponentSafe<Shadow>(betObj, "BetAmountText Shadow", out isNew);
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.6f);
-            shadow.effectDistance = new Vector2(1f, -1f);
-        }
-        else
-        {
-            betAmountText = betTxtTrans.GetComponent<Text>();
-        }
-
-        // 6. Create ScrollView inside Overall(Vertical)
-        Transform scrollTrans = FindAliveChild(overallTrans, "ScrollView");
-        if (scrollTrans == null)
-        {
-            // ScrollView GameObject
-            GameObject scrollViewObj = CreateGameObjectSafe("ScrollView", overallTrans);
-            scrollTrans = scrollViewObj.transform;
-            RectTransform scrollRectTransform = GetOrAddComponentSafe<RectTransform>(scrollViewObj, "ScrollView RectTransform", out isNew);
-            scrollRectTransform.sizeDelta = new Vector2(0f, 300f); // preferred list height
-
-            ScrollRect scrollRect = GetOrAddComponentSafe<ScrollRect>(scrollViewObj, "ScrollView ScrollRect", out isNew);
-            scrollRect.horizontal = true;
-            scrollRect.vertical = false;
-            scrollRect.movementType = ScrollRect.MovementType.Elastic;
-            scrollRect.elasticity = 0.1f;
-            scrollRect.inertia = true;
-            scrollRect.decelerationRate = 0.135f;
-
-            Image scrollBg = GetOrAddComponentSafe<Image>(scrollViewObj, "ScrollView Image", out isNew);
-            scrollBg.color = new Color(0f, 0f, 0f, 0.2f);
-
-            // Viewport GameObject
-            GameObject viewportObj = CreateGameObjectSafe("Viewport", scrollTrans);
-            RectTransform viewportRect = GetOrAddComponentSafe<RectTransform>(viewportObj, "Viewport RectTransform", out isNew);
-            viewportRect.anchorMin = Vector2.zero;
-            viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = Vector2.zero;
-            viewportRect.offsetMax = Vector2.zero;
-
-            Image viewportImage = GetOrAddComponentSafe<Image>(viewportObj, "Viewport Image", out isNew);
-            viewportImage.color = new Color(1f, 1f, 1f, 0.005f);
-            Mask mask = GetOrAddComponentSafe<Mask>(viewportObj, "Viewport Mask", out isNew);
-            mask.showMaskGraphic = false;
-
-            // Content GameObject
-            GameObject contentObj = CreateGameObjectSafe("Content", viewportRect.transform);
-            RectTransform contentRect = GetOrAddComponentSafe<RectTransform>(contentObj, "Content RectTransform", out isNew);
-            contentRect.anchorMin = new Vector2(0f, 0f);
-            contentRect.anchorMax = new Vector2(1f, 1f);
-            contentRect.pivot = new Vector2(0.5f, 0.5f);
-            contentRect.offsetMin = Vector2.zero;
-            contentRect.offsetMax = Vector2.zero;
-
-            HorizontalLayoutGroup hLayout = GetOrAddComponentSafe<HorizontalLayoutGroup>(contentObj, "Content HorizontalLayoutGroup", out isNew);
-            hLayout.spacing = 15f;
-            hLayout.padding = new RectOffset(10, 10, 10, 10);
-            hLayout.childControlWidth = true;
-            hLayout.childControlHeight = true;
-            hLayout.childForceExpandWidth = true;
-            hLayout.childForceExpandHeight = true;
-
-            ContentSizeFitter sizeFitter = GetOrAddComponentSafe<ContentSizeFitter>(contentObj, "Content ContentSizeFitter", out isNew);
-            sizeFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            scrollRect.viewport = viewportRect;
-            scrollRect.content = contentRect;
-
-            rowsContainer = contentRect.transform;
-        }
-        else
-        {
-            Transform viewport = FindAliveChild(scrollTrans, "Viewport");
-            if (viewport != null)
-            {
-                Transform content = FindAliveChild(viewport, "Content");
-                if (content != null)
-                {
-                    rowsContainer = content;
-                }
-            }
-        }
+        HideLegacyResultChrome();
 
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(this);
@@ -558,6 +411,12 @@ public class RoundResultPanel : MonoBehaviour
             }
         }
 #endif
+    }
+
+    private void DestroyNamedChild(Transform parent, string name)
+    {
+        Transform child = FindAliveChild(parent, name);
+        if (child != null) DestroyObjectSafe(child.gameObject);
     }
 
 
@@ -655,11 +514,11 @@ public class RoundResultPanel : MonoBehaviour
         if (closeTimerText != null) closeTimerText.gameObject.SetActive(true);
 
         if (bgAnimRoutine != null) StopCoroutine(bgAnimRoutine);
-        bgAnimRoutine = StartCoroutine(AnimateWonFoodBg());
+        bgAnimRoutine = null;
 
         if (roundNumberText != null)
         {
-            roundNumberText.text = $"Round {roundNumber} Results:";
+            roundNumberText.text = "Ranking in this Round";
         }
 
         // Keep win/lose verdict overlays disabled — using a single unified panel
@@ -718,22 +577,13 @@ public class RoundResultPanel : MonoBehaviour
             if (foodSprite != null)
             {
                 wonFoodImage.sprite = foodSprite;
-                wonFoodImage.gameObject.SetActive(true);
-                if (titleFoodImage != null)
-                {
-                    titleFoodImage.sprite = foodSprite;
-                    titleFoodImage.gameObject.SetActive(true);
-                }
+                if (titleFoodImage != null) titleFoodImage.sprite = foodSprite;
             }
-            else
-            {
-                wonFoodImage.gameObject.SetActive(false);
-                if (titleFoodImage != null)
-                {
-                    titleFoodImage.gameObject.SetActive(false);
-                }
-            }
+
+            HideLegacyResultChrome();
         }
+
+        HideLegacyResultChrome();
 
         if (rowsContainer != null)
         {
@@ -836,7 +686,7 @@ public class RoundResultPanel : MonoBehaviour
         if (titleFoodImage != null) titleFoodImage.gameObject.SetActive(false);
         if (wonAmountText != null) wonAmountText.text = "";
         if (betAmountText != null) betAmountText.text = "";
-        if (roundNumberText != null) roundNumberText.text = "";
+        if (roundNumberText != null) roundNumberText.text = "Ranking in this Round";
         if (closeTimerText != null) closeTimerText.text = "";
     }
 
@@ -898,10 +748,25 @@ public class RoundResultPanel : MonoBehaviour
         return font;
     }
 
+    void HideLegacyResultChrome()
+    {
+        SetAliveActive("Top(Horizontal)", false);
+        SetAliveActive("WonFoodBgImage", false);
+        SetAliveActive("WonFoodImage", false);
+        SetAliveActive("HighlightedRow(Vertical)", false);
+        if (wonFoodBgImage != null) wonFoodBgImage.gameObject.SetActive(false);
+        if (wonFoodImage != null) wonFoodImage.gameObject.SetActive(false);
+        if (titleFoodImage != null) titleFoodImage.gameObject.SetActive(false);
+    }
+
+    void SetAliveActive(string childName, bool active)
+    {
+        Transform child = FindAliveChild(transform, childName);
+        if (child != null) child.gameObject.SetActive(active);
+    }
+
     static string FormatCoins(long v)
     {
-        if (v >= 1_000_000) return $"{v / 1_000_000f:0.#}M";
-        if (v >= 1_000)     return $"{v / 1_000f:0.#}k";
         return v.ToString();
     }
 }
